@@ -1,0 +1,278 @@
+{% extends "base.html" %}
+{% block title %}Recipients{% endblock %}
+{% block page_title %}Recipient Management{% endblock %}
+
+{% block content %}
+<div class="filter-bar">
+  <form method="GET" class="filter-form">
+    <div class="search-wrap">
+      <i class="fa-solid fa-magnifying-glass"></i>
+      <input type="text" name="search" placeholder="Search recipients by name, blood group, organ…"
+             value="{{ search }}" class="search-input" />
+    </div>
+    <select name="organ" class="filter-select">
+      <option value="">All Organs</option>
+      {% for o in ['Kidney','Liver','Heart','Lung','Pancreas','Cornea'] %}
+      <option value="{{ o }}" {% if organ == o %}selected{% endif %}>{{ o }}</option>
+      {% endfor %}
+    </select>
+    <select name="blood" class="filter-select">
+      <option value="">All Blood Groups</option>
+      {% for b in ['O+','O-','A+','A-','B+','B-','AB+','AB-'] %}
+      <option value="{{ b }}" {% if blood == b %}selected{% endif %}>{{ b }}</option>
+      {% endfor %}
+    </select>
+    <select name="urgency" class="filter-select">
+      <option value="">All Urgency</option>
+      {% for u in [5,4,3,2,1] %}
+      <option value="{{ u }}" {% if urgency == u|string %}selected{% endif %}>
+        Level {{ u }} {% if u==5 %}(Critical){% elif u==4 %}(High){% elif u==3 %}(Medium){% else %}(Low){% endif %}
+      </option>
+      {% endfor %}
+    </select>
+    <select name="status" class="filter-select">
+      <option value="">All Status</option>
+      <option value="Waiting" {% if status == 'Waiting' %}selected{% endif %}>Waiting</option>
+      <option value="Received" {% if status == 'Received' %}selected{% endif %}>Received</option>
+    </select>
+    <button type="submit" class="btn-filter"><i class="fa-solid fa-filter"></i> Filter</button>
+    <a href="/recipients" class="btn-clear"><i class="fa-solid fa-xmark"></i> Clear</a>
+  </form>
+  <button class="btn-primary" onclick="openModal('add-recipient-modal')">
+    <i class="fa-solid fa-plus"></i> Add Recipient
+  </button>
+</div>
+
+<div class="results-bar">
+  <span class="results-count"><strong>{{ total }}</strong> recipient{{ 's' if total != 1 }} found</span>
+  <div class="active-filters">
+    {% if search %}<span class="filter-pill">Search: "{{ search }}"</span>{% endif %}
+    {% if organ %}<span class="filter-pill">Organ: {{ organ }}</span>{% endif %}
+    {% if blood %}<span class="filter-pill">Blood: {{ blood }}</span>{% endif %}
+    {% if status %}<span class="filter-pill organ-{{ status|lower }}">{{ status }}</span>{% endif %}
+  </div>
+</div>
+
+<div class="table-card">
+  <table class="data-table">
+    <thead>
+      <tr>
+        {% set cols = [('Recipient_ID','ID'),('Name','Name'),('Age','Age'),('Blood_Group','Blood'),('Organ_Required','Organ Needed'),('Urgency_Level','Urgency'),('Registration_Date','Registered'),('Status','Status'),('Hospital_Name','Hospital')] %}
+        {% for col, label in cols %}
+        <th>
+          <a href="?search={{ search }}&organ={{ organ }}&blood={{ blood }}&urgency={{ urgency }}&sort={{ col }}&order={{ 'DESC' if sort == col and order == 'ASC' else 'ASC' }}" class="sort-link {% if sort == col %}active-sort{% endif %}">
+            {{ label }}
+            {% if sort == col %}
+              <i class="fa-solid fa-sort-{{ 'down' if order == 'DESC' else 'up' }}"></i>
+            {% else %}<i class="fa-solid fa-sort sort-icon-muted"></i>{% endif %}
+          </a>
+        </th>
+        {% endfor %}
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in recipients %}
+      <tr class="table-row {% if r.Urgency_Level == 5 %}row-critical{% endif %}">
+        <td><span class="id-badge">#{{ r.Recipient_ID }}</span></td>
+        <td><div class="name-cell"><div class="avatar avatar-recipient">{{ r.Name[0] }}</div>{{ r.Name }}</div></td>
+        <td>{{ r.Age }}</td>
+        <td><span class="blood-badge">{{ r.Blood_Group }}</span></td>
+        <td><span class="organ-pill organ-{{ r.Organ_Required|lower }}">{{ r.Organ_Required }}</span></td>
+        <td>
+          <div class="urgency-display">
+            <div class="urgency-stars">
+              {% for i in range(1,6) %}
+                <i class="fa-solid fa-star {% if i <= r.Urgency_Level %}star-active-{{ r.Urgency_Level }}{% else %}star-off{% endif %}"></i>
+              {% endfor %}
+            </div>
+            <span class="urgency-num level-tag-{{ r.Urgency_Level }}">
+              {% if r.Urgency_Level == 5 %}🔴 Critical
+              {% elif r.Urgency_Level == 4 %}🟠 High
+              {% elif r.Urgency_Level == 3 %}🟡 Medium
+              {% else %}🟢 Low{% endif %}
+            </span>
+          </div>
+        </td>
+        <td>{{ r.Registration_Date }}</td>
+        <td>
+          <span class="status-badge status-{{ 'available' if r.Status == 'Waiting' else 'used' }}">
+            <i class="fa-solid {% if r.Status == 'Waiting' %}fa-clock{% else %}fa-check-double{% endif %}"></i>
+            {{ r.Status }}
+          </span>
+        </td>
+        <td>{{ r.Hospital_Name or '—' }}</td>
+        <td>
+          <div class="action-btns">
+            <button class="btn-icon btn-edit" data-id="{{ r.Recipient_ID }}"><i class="fa-solid fa-pen"></i></button>
+            <button class="btn-icon btn-delete" data-url="/recipients/delete/{{ r.Recipient_ID }}"><i class="fa-solid fa-trash"></i></button>
+          </div>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="9" class="empty-row"><i class="fa-solid fa-inbox"></i> No recipients found</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<!-- ADD MODAL -->
+<div class="modal-overlay" id="add-recipient-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2><i class="fa-solid fa-hospital-user"></i> Add New Recipient</h2>
+      <button class="modal-close" onclick="closeModal('add-recipient-modal')">×</button>
+    </div>
+    <form method="POST" action="/recipients/add" class="modal-form">
+      <div class="form-grid">
+        <div class="form-group span-2">
+          <label>Full Name *</label>
+          <input type="text" name="name" required placeholder="Recipient full name" />
+        </div>
+        <div class="form-group">
+          <label>Age *</label>
+          <input type="number" name="age" min="1" required placeholder="Age" />
+        </div>
+        <div class="form-group">
+          <label>Blood Group *</label>
+          <select name="blood_group" required>
+            {% for b in ['O+','O-','A+','A-','B+','B-','AB+','AB-'] %}
+            <option value="{{ b }}">{{ b }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Organ Required *</label>
+          <select name="organ_required" required>
+            {% for o in ['Kidney','Liver','Heart','Lung','Pancreas','Cornea'] %}
+            <option value="{{ o }}">{{ o }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Urgency Level (1–5) *</label>
+          <select name="urgency_level" required>
+            <option value="5">5 — Critical 🔴</option>
+            <option value="4">4 — High 🟠</option>
+            <option value="3">3 — Medium 🟡</option>
+            <option value="2">2 — Low 🟢</option>
+            <option value="1">1 — Stable 🔵</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Registration Date *</label>
+          <input type="date" name="registration_date" required />
+        </div>
+        <div class="form-group">
+          <label>Hospital</label>
+          <select name="hospital_id">
+            <option value="">— None —</option>
+            {% for h in hospitals %}
+            <option value="{{ h.Hospital_ID }}">{{ h.Hospital_Name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-secondary" onclick="closeModal('add-recipient-modal')">Cancel</button>
+        <button type="submit" class="btn-primary"><i class="fa-solid fa-save"></i> Save Recipient</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- EDIT MODAL -->
+<div class="modal-overlay" id="edit-recipient-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2><i class="fa-solid fa-pen"></i> Edit Recipient</h2>
+      <button class="modal-close" onclick="closeModal('edit-recipient-modal')">×</button>
+    </div>
+    <form method="POST" id="edit-recipient-form" class="modal-form">
+      <div class="form-grid">
+        <div class="form-group span-2">
+          <label>Full Name *</label>
+          <input type="text" name="name" id="edit-recip-name" required />
+        </div>
+        <div class="form-group">
+          <label>Age *</label>
+          <input type="number" name="age" id="edit-recip-age" required />
+        </div>
+        <div class="form-group">
+          <label>Blood Group *</label>
+          <select name="blood_group" id="edit-recip-blood">
+            {% for b in ['O+','O-','A+','A-','B+','B-','AB+','AB-'] %}
+            <option value="{{ b }}">{{ b }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Organ Required *</label>
+          <select name="organ_required" id="edit-recip-organ">
+            {% for o in ['Kidney','Liver','Heart','Lung','Pancreas','Cornea'] %}
+            <option value="{{ o }}">{{ o }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Urgency Level *</label>
+          <select name="urgency_level" id="edit-recip-urgency">
+            <option value="5">5 — Critical 🔴</option>
+            <option value="4">4 — High 🟠</option>
+            <option value="3">3 — Medium 🟡</option>
+            <option value="2">2 — Low 🟢</option>
+            <option value="1">1 — Stable 🔵</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Registration Date *</label>
+          <input type="date" name="registration_date" id="edit-recip-date" required />
+        </div>
+        <div class="form-group">
+          <label>Status</label>
+          <select name="status" id="edit-recip-status">
+            <option value="Waiting">Waiting</option>
+            <option value="Received">Received</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Hospital</label>
+          <select name="hospital_id" id="edit-recip-hospital">
+            <option value="">— None —</option>
+            {% for h in hospitals %}
+            <option value="{{ h.Hospital_ID }}">{{ h.Hospital_Name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-secondary" onclick="closeModal('edit-recipient-modal')">Cancel</button>
+        <button type="submit" class="btn-primary"><i class="fa-solid fa-save"></i> Update Recipient</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% include 'partials/delete_modal.html' %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+function editRecipient(id) {
+  fetch(`/recipients/get/${id}`)
+    .then(r => r.json())
+    .then(d => {
+      document.getElementById('edit-recipient-form').action = `/recipients/edit/${id}`;
+      document.getElementById('edit-recip-name').value     = d.Name;
+      document.getElementById('edit-recip-age').value      = d.Age;
+      document.getElementById('edit-recip-blood').value    = d.Blood_Group;
+      document.getElementById('edit-recip-organ').value    = d.Organ_Required;
+      document.getElementById('edit-recip-urgency').value  = d.Urgency_Level;
+      document.getElementById('edit-recip-date').value     = d.Registration_Date;
+      document.getElementById('edit-recip-status').value   = d.Status;
+      document.getElementById('edit-recip-hospital').value = d.Hospital_ID || '';
+      openModal('edit-recipient-modal');
+    });
+}
+</script>
+{% endblock %}

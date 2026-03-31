@@ -1,0 +1,210 @@
+{% extends "base.html" %}
+{% block title %}Organ Match{% endblock %}
+{% block page_title %}AI Organ Matching{% endblock %}
+
+{% block content %}
+<div class="match-hero">
+  <div class="match-hero-content">
+    <div class="match-hero-icon"><i class="fa-solid fa-dna"></i></div>
+    <div>
+      <h2>Smart Organ Matching Engine</h2>
+      <p>Select an available donor to instantly find the best-matched recipient based on blood group compatibility and urgency level.</p>
+    </div>
+  </div>
+</div>
+
+<div class="match-layout">
+  <!-- Donor List -->
+  <div class="match-left">
+    <div class="section-header">
+      <h3><i class="fa-solid fa-user-plus"></i> Available Donors</h3>
+      <span class="count-badge">{{ available_donors|length }}</span>
+    </div>
+    <div class="donor-list" id="donor-list">
+      {% for d in available_donors %}
+      <div class="donor-item" data-donor-id="{{ d.Donor_ID }}">
+        <div class="donor-item-left">
+          <div class="avatar">{{ d.Name[0] }}</div>
+          <div>
+            <div class="donor-item-name">{{ d.Name }}</div>
+            <div class="donor-item-meta">
+              <span class="organ-pill organ-{{ d.Organ_Type|lower }} sm">{{ d.Organ_Type }}</span>
+              <span class="blood-badge sm">{{ d.Blood_Group }}</span>
+            </div>
+          </div>
+        </div>
+        <div class="donor-item-right">
+          <div class="donor-item-date">{{ d.Donation_Date }}</div>
+          <div class="donor-item-hospital">{{ d.Hospital_Name or '—' }}</div>
+        </div>
+      </div>
+      {% else %}
+      <div class="empty-match"><i class="fa-solid fa-inbox"></i> No available donors</div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Match Result -->
+  <div class="match-right" id="match-panel">
+    <div class="match-placeholder" id="match-placeholder">
+      <i class="fa-solid fa-arrow-left fa-2x"></i>
+      <p>Select a donor to find their best match</p>
+    </div>
+
+    <div id="match-result" style="display:none;">
+      <div class="match-result-header">
+        <h3><i class="fa-solid fa-link"></i> Match Found!</h3>
+        <span class="match-confidence">Blood + Organ Compatible</span>
+      </div>
+
+      <div class="match-cards-wrap">
+        <!-- Donor Card -->
+        <div class="match-profile-card donor-profile">
+          <div class="match-profile-label">DONOR</div>
+          <div class="match-profile-avatar" id="res-donor-avatar"></div>
+          <div class="match-profile-name" id="res-donor-name"></div>
+          <div class="match-profile-details">
+            <div class="match-detail-row"><i class="fa-solid fa-droplet"></i><span id="res-donor-blood"></span></div>
+            <div class="match-detail-row"><i class="fa-solid fa-heart-pulse"></i><span id="res-donor-organ"></span></div>
+            <div class="match-detail-row"><i class="fa-solid fa-hospital"></i><span id="res-donor-hospital"></span></div>
+            <div class="match-detail-row"><i class="fa-solid fa-calendar"></i><span id="res-donor-date"></span></div>
+          </div>
+        </div>
+
+        <div class="match-arrow">
+          <i class="fa-solid fa-arrows-left-right"></i>
+          <span>MATCH</span>
+        </div>
+
+        <!-- Recipient Card -->
+        <div class="match-profile-card recipient-profile">
+          <div class="match-profile-label">RECIPIENT</div>
+          <div class="match-profile-avatar recipient-av" id="res-recip-avatar"></div>
+          <div class="match-profile-name" id="res-recip-name"></div>
+          <div class="match-profile-details">
+            <div class="match-detail-row"><i class="fa-solid fa-droplet"></i><span id="res-recip-blood"></span></div>
+            <div class="match-detail-row"><i class="fa-solid fa-heart-pulse"></i><span id="res-recip-organ"></span></div>
+            <div class="match-detail-row"><i class="fa-solid fa-triangle-exclamation"></i>
+              <span id="res-recip-urgency" class="urgency-inline"></span></div>
+            <div class="match-detail-row"><i class="fa-solid fa-calendar"></i><span id="res-recip-date"></span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="match-action-bar">
+        <button onclick="recordMatch()" class="btn-primary" id="btn-record-match">
+          <i class="fa-solid fa-file-signature"></i> Quick Record Transplant
+        </button>
+        <a href="/transplants" class="btn-secondary">
+          <i class="fa-solid fa-list"></i> View All Records
+        </a>
+      </div>
+    </div>
+
+    <div id="match-no-result" style="display:none;" class="match-no-result">
+      <i class="fa-solid fa-circle-xmark fa-3x"></i>
+      <h3>No Match Found</h3>
+      <p>No recipient with matching blood group and required organ is currently registered.</p>
+    </div>
+
+    <div id="match-loading" style="display:none;" class="match-loading">
+      <div class="loader"></div>
+      <p>Searching for best match…</p>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let lastSelected = null;
+let currentMatch = null;
+
+document.addEventListener('DOMContentLoaded', () => {
+  const donorList = document.getElementById('donor-list');
+  if (donorList) {
+    donorList.addEventListener('click', (e) => {
+      const item = e.target.closest('.donor-item');
+      if (item && !e.target.closest('.btn-icon')) {
+        runMatch(item.dataset.donorId, item);
+      }
+    });
+  }
+});
+
+function recordMatch() {
+  if (!currentMatch) return;
+  const btn = document.getElementById('btn-record-match');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Recording...';
+
+  fetch('/match/record', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      donor_id: currentMatch.donor_id,
+      recipient_id: currentMatch.recipient_id
+    })
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.success) {
+      alert(data.message);
+      window.location.reload();
+    } else {
+      alert('Error: ' + data.message);
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fa-solid fa-file-signature"></i> Quick Record Transplant';
+    }
+  });
+}
+
+function runMatch(donorId, el) {
+  if (lastSelected) lastSelected.classList.remove('donor-item-active');
+  el.classList.add('donor-item-active');
+  lastSelected = el;
+
+  document.getElementById('match-placeholder').style.display = 'none';
+  document.getElementById('match-result').style.display     = 'none';
+  document.getElementById('match-no-result').style.display  = 'none';
+  document.getElementById('match-loading').style.display    = 'flex';
+
+  fetch(`/match/run/${donorId}`)
+    .then(r => r.json())
+    .then(data => {
+      document.getElementById('match-loading').style.display = 'none';
+      const d = data.donor;
+      const m = data.match;
+
+      document.getElementById('res-donor-avatar').textContent   = d.Name[0];
+      document.getElementById('res-donor-name').textContent     = d.Name;
+      document.getElementById('res-donor-blood').textContent    = d.Blood_Group;
+      document.getElementById('res-donor-organ').textContent    = d.Organ_Type;
+      document.getElementById('res-donor-hospital').textContent = d.Hospital_Name || '—';
+      document.getElementById('res-donor-date').textContent     = d.Donation_Date;
+
+      if (m) {
+        currentMatch = { donor_id: donorId, recipient_id: m.Recipient_ID };
+        document.getElementById('res-recip-avatar').textContent   = m.Name[0];
+        document.getElementById('res-recip-name').textContent     = m.Name;
+        document.getElementById('res-recip-blood').textContent    = m.Blood_Group;
+        document.getElementById('res-recip-organ').textContent    = m.Organ_Required;
+        const urgencyEl = document.getElementById('res-recip-urgency');
+        const labels = {5:'🔴 Critical',4:'🟠 High',3:'🟡 Medium',2:'🟢 Low',1:'🔵 Stable'};
+        urgencyEl.textContent = `Level ${m.Urgency_Level} — ${labels[m.Urgency_Level] || ''}`;
+        urgencyEl.className   = `urgency-inline level-tag-${m.Urgency_Level}`;
+        document.getElementById('res-recip-date').textContent = m.Registration_Date;
+        document.getElementById('match-result').style.display = 'block';
+      } else {
+        currentMatch = null;
+        document.getElementById('match-no-result').style.display = 'flex';
+      }
+    })
+    .catch(() => {
+      currentMatch = null;
+      document.getElementById('match-loading').style.display    = 'none';
+      document.getElementById('match-no-result').style.display  = 'flex';
+    });
+}
+</script>
+{% endblock %}

@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+{% block title %}Hospitals{% endblock %}
+{% block page_title %}Hospital Management{% endblock %}
+
+{% block content %}
+<div class="filter-bar">
+  <form method="GET" class="filter-form">
+    <div class="search-wrap">
+      <i class="fa-solid fa-magnifying-glass"></i>
+      <input type="text" name="search" placeholder="Search by name, location, contact…"
+             value="{{ search }}" class="search-input" />
+    </div>
+    <button type="submit" class="btn-filter"><i class="fa-solid fa-filter"></i> Filter</button>
+    <a href="/hospitals" class="btn-clear"><i class="fa-solid fa-xmark"></i> Clear</a>
+  </form>
+  <button class="btn-primary" onclick="openModal('add-hospital-modal')">
+    <i class="fa-solid fa-plus"></i> Add Hospital
+  </button>
+</div>
+
+<div class="results-bar">
+  <span class="results-count"><strong>{{ total }}</strong> hospital{{ 's' if total != 1 }} found</span>
+  {% if search %}<span class="filter-pill">Search: "{{ search }}"</span>{% endif %}
+</div>
+
+<div class="hospital-grid">
+  {% for h in hospitals %}
+  <div class="hospital-card">
+    <div class="hospital-card-header">
+      <div class="hospital-icon"><i class="fa-solid fa-hospital"></i></div>
+      <div class="hospital-id"><span class="id-badge">#{{ h.Hospital_ID }}</span></div>
+    </div>
+    <div class="hospital-card-body">
+      <h3 class="hospital-name">{{ h.Hospital_Name }}</h3>
+      <div class="hospital-detail"><i class="fa-solid fa-location-dot"></i> {{ h.Location or '—' }}</div>
+      <div class="hospital-detail"><i class="fa-solid fa-phone"></i> {{ h.Contact_Number or '—' }}</div>
+    </div>
+    <div class="hospital-card-footer">
+      <button class="btn-icon btn-edit" data-id="{{ h.Hospital_ID }}">
+        <i class="fa-solid fa-pen"></i> Edit
+      </button>
+      <button class="btn-icon btn-delete" data-url="/hospitals/delete/{{ h.Hospital_ID }}">
+        <i class="fa-solid fa-trash"></i> Delete
+      </button>
+    </div>
+  </div>
+  {% else %}
+  <div class="empty-card"><i class="fa-solid fa-inbox"></i> No hospitals found</div>
+  {% endfor %}
+</div>
+
+<!-- ADD MODAL -->
+<div class="modal-overlay" id="add-hospital-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2><i class="fa-solid fa-hospital"></i> Add New Hospital</h2>
+      <button class="modal-close" onclick="closeModal('add-hospital-modal')">×</button>
+    </div>
+    <form method="POST" action="/hospitals/add" class="modal-form">
+      <div class="form-grid">
+        <div class="form-group span-2">
+          <label>Hospital Name *</label>
+          <input type="text" name="hospital_name" required placeholder="e.g. Apollo Main Centre" />
+        </div>
+        <div class="form-group">
+          <label>Location *</label>
+          <input type="text" name="location" required placeholder="City" />
+        </div>
+        <div class="form-group">
+          <label>Contact Number</label>
+          <input type="text" name="contact_number" placeholder="10-digit number" maxlength="15" />
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-secondary" onclick="closeModal('add-hospital-modal')">Cancel</button>
+        <button type="submit" class="btn-primary"><i class="fa-solid fa-save"></i> Save Hospital</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- EDIT MODAL -->
+<div class="modal-overlay" id="edit-hospital-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2><i class="fa-solid fa-pen"></i> Edit Hospital</h2>
+      <button class="modal-close" onclick="closeModal('edit-hospital-modal')">×</button>
+    </div>
+    <form method="POST" id="edit-hospital-form" class="modal-form">
+      <div class="form-grid">
+        <div class="form-group span-2">
+          <label>Hospital Name *</label>
+          <input type="text" name="hospital_name" id="edit-hosp-name" required />
+        </div>
+        <div class="form-group">
+          <label>Location *</label>
+          <input type="text" name="location" id="edit-hosp-location" required />
+        </div>
+        <div class="form-group">
+          <label>Contact Number</label>
+          <input type="text" name="contact_number" id="edit-hosp-contact" maxlength="15" />
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-secondary" onclick="closeModal('edit-hospital-modal')">Cancel</button>
+        <button type="submit" class="btn-primary"><i class="fa-solid fa-save"></i> Update Hospital</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% include 'partials/delete_modal.html' %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+function editHospital(id) {
+  fetch(`/hospitals/get/${id}`)
+    .then(r => r.json())
+    .then(d => {
+      document.getElementById('edit-hospital-form').action = `/hospitals/edit/${id}`;
+      document.getElementById('edit-hosp-name').value     = d.Hospital_Name;
+      document.getElementById('edit-hosp-location').value = d.Location || '';
+      document.getElementById('edit-hosp-contact').value  = d.Contact_Number || '';
+      openModal('edit-hospital-modal');
+    });
+}
+</script>
+{% endblock %}

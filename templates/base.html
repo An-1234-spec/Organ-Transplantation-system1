@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}OrganLink{% endblock %} — Organ Transplant Management</title>
+  <meta name="description" content="Professional Organ Transplantation Management System for tracking donors, recipients, hospitals and transplant records." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+</head>
+<body>
+
+<!-- Sidebar -->
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-icon"><i class="fa-solid fa-heart-pulse"></i></div>
+    <div class="logo-text">
+      <span class="logo-main">OrganLink</span>
+      <span class="logo-sub">Transplant System</span>
+    </div>
+  </div>
+
+  <nav class="sidebar-nav">
+    <a href="/" class="nav-item {% if request.path == '/' %}active{% endif %}">
+      <i class="fa-solid fa-gauge-high"></i><span>Dashboard</span>
+    </a>
+    <a href="/donors" class="nav-item {% if '/donors' in request.path %}active{% endif %}">
+      <i class="fa-solid fa-user-plus"></i><span>Donors</span>
+    </a>
+    <a href="/recipients" class="nav-item {% if '/recipients' in request.path %}active{% endif %}">
+      <i class="fa-solid fa-hospital-user"></i><span>Recipients</span>
+    </a>
+    <a href="/hospitals" class="nav-item {% if '/hospitals' in request.path %}active{% endif %}">
+      <i class="fa-solid fa-hospital"></i><span>Hospitals</span>
+    </a>
+    <a href="/transplants" class="nav-item {% if '/transplants' in request.path %}active{% endif %}">
+      <i class="fa-solid fa-syringe"></i><span>Transplants</span>
+    </a>
+    <a href="/match" class="nav-item {% if '/match' in request.path %}active{% endif %}">
+      <i class="fa-solid fa-dna"></i><span>Organ Match</span>
+      <span class="nav-badge">AI</span>
+    </a>
+  </nav>
+
+  <div class="sidebar-footer">
+    <div class="sidebar-date" id="sidebar-clock"></div>
+    <div class="system-status">
+      <span class="status-dot"></span> System Online
+    </div>
+  </div>
+</aside>
+
+<!-- Main Content -->
+<div class="main-wrapper">
+  <header class="topbar">
+    <button class="sidebar-toggle" onclick="toggleSidebar()">
+      <i class="fa-solid fa-bars"></i>
+    </button>
+    <div class="topbar-title">{% block page_title %}Dashboard{% endblock %}</div>
+    <div class="topbar-right">
+      <div class="topbar-stat"><i class="fa-solid fa-circle-dot pulse-red"></i> Live</div>
+    </div>
+  </header>
+
+  <!-- Flash Messages -->
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <div class="flash-container">
+        {% for cat, msg in messages %}
+          <div class="flash flash-{{ cat }}">
+            <i class="fa-solid {% if cat == 'success' %}fa-circle-check{% else %}fa-circle-exclamation{% endif %}"></i>
+            {{ msg }}
+            <button class="flash-close" onclick="this.parentElement.remove()">×</button>
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
+
+  <main class="content">
+    {% block content %}{% endblock %}
+  </main>
+</div>
+
+<script src="{{ url_for('static', filename='main.js') }}"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

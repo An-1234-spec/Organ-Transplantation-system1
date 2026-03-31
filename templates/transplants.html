@@ -1,0 +1,149 @@
+{% extends "base.html" %}
+{% block title %}Transplants{% endblock %}
+{% block page_title %}Transplant Records{% endblock %}
+
+{% block content %}
+<div class="filter-bar">
+  <form method="GET" class="filter-form">
+    <div class="search-wrap">
+      <i class="fa-solid fa-magnifying-glass"></i>
+      <input type="text" name="search" placeholder="Search donor, recipient, organ, hospital…"
+             value="{{ search }}" class="search-input" />
+    </div>
+    <button type="submit" class="btn-filter"><i class="fa-solid fa-filter"></i> Filter</button>
+    <a href="/transplants" class="btn-clear"><i class="fa-solid fa-xmark"></i> Clear</a>
+  </form>
+  <button class="btn-primary" onclick="openModal('add-transplant-modal')">
+    <i class="fa-solid fa-plus"></i> Record Transplant
+  </button>
+</div>
+
+<div class="results-bar">
+  <span class="results-count"><strong>{{ total }}</strong> transplant record{{ 's' if total != 1 }}</span>
+  {% if search %}<span class="filter-pill">Search: "{{ search }}"</span>{% endif %}
+</div>
+
+<div class="table-card">
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>
+          <a href="?search={{ search }}&sort=Transplant_ID&order={{ 'DESC' if sort=='Transplant_ID' and order=='ASC' else 'ASC' }}" class="sort-link {% if sort=='Transplant_ID' %}active-sort{% endif %}">
+            ID <i class="fa-solid fa-sort{{ '-down' if sort=='Transplant_ID' and order=='DESC' else ('-up' if sort=='Transplant_ID' else '') }}"></i>
+          </a>
+        </th>
+        <th>Donor</th>
+        <th>Recipient</th>
+        <th>Organ</th>
+        <th>Urgency</th>
+        <th>Hospital</th>
+        <th>
+          <a href="?search={{ search }}&sort=Transplant_Date&order={{ 'DESC' if sort=='Transplant_Date' and order=='ASC' else 'ASC' }}" class="sort-link {% if sort=='Transplant_Date' %}active-sort{% endif %}">
+            Date <i class="fa-solid fa-sort{{ '-down' if sort=='Transplant_Date' and order=='DESC' else ('-up' if sort=='Transplant_Date' else '') }}"></i>
+          </a>
+        </th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for t in transplants %}
+      <tr class="table-row">
+        <td><span class="id-badge">#{{ t.Transplant_ID }}</span></td>
+        <td>
+          <div class="name-cell">
+            <div class="avatar avatar-donor">{{ t.donor_name[0] }}</div>
+            <div>
+              <div>{{ t.donor_name }}</div>
+              <div class="sub-text"><span class="blood-badge sm">{{ t.donor_blood }}</span></div>
+            </div>
+          </div>
+        </td>
+        <td>
+          <div class="name-cell">
+            <div class="avatar avatar-recipient">{{ t.recipient_name[0] }}</div>
+            {{ t.recipient_name }}
+          </div>
+        </td>
+        <td><span class="organ-pill organ-{{ t.Organ_Type|lower }}">{{ t.Organ_Type }}</span></td>
+        <td>
+          <span class="urgency-num level-tag-{{ t.Urgency_Level }}">
+            {% if t.Urgency_Level == 5 %}🔴 Critical
+            {% elif t.Urgency_Level == 4 %}🟠 High
+            {% elif t.Urgency_Level == 3 %}🟡 Medium
+            {% else %}🟢 Low{% endif %}
+          </span>
+        </td>
+        <td>{{ t.Hospital_Name }}</td>
+        <td><span class="date-chip">{{ t.Transplant_Date }}</span></td>
+        <td>
+          <button class="btn-icon btn-delete" onclick="confirmDelete('/transplants/delete/{{ t.Transplant_ID }}')">
+            <i class="fa-solid fa-trash"></i>
+          </button>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="8" class="empty-row"><i class="fa-solid fa-inbox"></i> No transplant records</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<!-- ADD MODAL -->
+<div class="modal-overlay" id="add-transplant-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2><i class="fa-solid fa-syringe"></i> Record New Transplant</h2>
+      <button class="modal-close" onclick="closeModal('add-transplant-modal')">×</button>
+    </div>
+    <form method="POST" action="/transplants/add" class="modal-form">
+      <div class="info-box">
+        <i class="fa-solid fa-circle-info"></i>
+        Only <strong>Available</strong> donors are shown. Donor status will automatically change to <strong>Used</strong> after recording.
+      </div>
+      <div class="form-grid">
+        <div class="form-group span-2">
+          <label>Available Donor *</label>
+          <select name="donor_id" required>
+            <option value="">— Select Donor —</option>
+            {% for d in donors %}
+            <option value="{{ d.Donor_ID }}">
+              #{{ d.Donor_ID }} — {{ d.Name }} ({{ d.Organ_Type }}, {{ d.Blood_Group if d.Blood_Group else '' }})
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-group span-2">
+          <label>Recipient *</label>
+          <select name="recipient_id" required>
+            <option value="">— Select Recipient —</option>
+            {% for r in recipients %}
+            <option value="{{ r.Recipient_ID }}">
+              #{{ r.Recipient_ID }} — {{ r.Name }} ({{ r.Organ_Required }}, Urgency: {{ r.Urgency_Level }})
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Hospital *</label>
+          <select name="hospital_id" required>
+            <option value="">— Select Hospital —</option>
+            {% for h in hospitals %}
+            <option value="{{ h.Hospital_ID }}">{{ h.Hospital_Name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Transplant Date *</label>
+          <input type="date" name="transplant_date" required />
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-secondary" onclick="closeModal('add-transplant-modal')">Cancel</button>
+        <button type="submit" class="btn-primary"><i class="fa-solid fa-save"></i> Record Transplant</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% include 'partials/delete_modal.html' %}
+{% endblock %}
